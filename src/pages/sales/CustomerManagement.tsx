@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,28 +21,21 @@ import { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import * as AddressService from "@/services/addressService";
+import { customerService, CreateCustomerPayload } from "@/services/customerService";
 import {
   Search,
   Plus,
-  Phone,
-  Mail,
-  MapPin,
-  Calendar,
-  Package,
-  UserPlus,
   FileText,
   Clock,
   Filter,
   CalendarIcon,
-  Receipt,
   Check,
   ChevronsUpDown,
   User,
   X,
-  Users
+  Users,
+  UserPlus
 } from "lucide-react";
-
-// ข้อมูลที่อยู่จะถูกดึงจาก API แทน hardcoded data
 
 // Product tags for multi-select
 const productTags = [
@@ -67,41 +59,29 @@ interface Customer {
   totalValue: number;
   lastContact: string;
   status: string;
-  // CRM Fields (Mock)
-  salesStatus: 'ใหม่' | 'เสนอราคา' | 'ผลิต' | 'ปิดงาน';
+  salesStatus: string;
   nextAction: string;
   nextActionDate: string;
   salesOwner: string;
   interestedProducts: string[];
 }
 
-// Mock CRM data generator
-const generateMockCRMData = (index: number) => {
-  const salesStatuses: Array<'ใหม่' | 'เสนอราคา' | 'ผลิต' | 'ปิดงาน'> = ['ใหม่', 'เสนอราคา', 'ผลิต', 'ปิดงาน'];
-  const nextActions = [
-    'โทรติดตาม',
-    'นัดพรีเซนต์',
-    'ส่งใบเสนอราคา',
-    'ติดตามการผลิต',
-    'เข้าพบลูกค้า',
-    'รอลูกค้าตัดสินใจ',
-    'ส่งมอบงาน'
-  ];
-  const owners = ['สมชาย', 'สมหญิง', 'วิภา', 'ธนา', 'กมล'];
-  const products = [['เหรียญ', 'ถ้วยรางวัล'], ['โล่', 'เสื้อ'], ['สายคล้อง'], ['แก้ว', 'หมวก'], ['เหรียญ']];
-
-  const today = new Date();
-  const futureDate = new Date(today);
-  futureDate.setDate(today.getDate() + Math.floor(Math.random() * 14) + 1);
-
-  return {
-    salesStatus: salesStatuses[index % salesStatuses.length],
-    nextAction: nextActions[index % nextActions.length],
-    nextActionDate: futureDate.toISOString().split('T')[0],
-    salesOwner: owners[index % owners.length],
-    interestedProducts: products[index % products.length]
-  };
-};
+interface RawCustomerData {
+  id: string;
+  company_name: string;
+  contact_name: string;
+  phone_numbers: string[];
+  emails: string[];
+  billing_province: string;
+  customer_type: string;
+  total_orders: string;
+  total_value: string;
+  last_contact_date: string;
+  customer_status: string;
+  presentation_status: string;
+  responsible_person: string;
+  interested_products: string[];
+}
 
 // Phone number formatting helper
 const formatPhoneNumber = (value: string) => {
@@ -120,7 +100,7 @@ const formatTaxId = (value: string) => {
 export default function CustomerManagement() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [businessTypeFilter, setBusinessTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [salesOwnerFilter, setSalesOwnerFilter] = useState<string>("all");
@@ -146,7 +126,7 @@ export default function CustomerManagement() {
   const [shippingDistricts, setShippingDistricts] = useState<string[]>([]);
   const [shippingSubdistricts, setShippingSubdistricts] = useState<string[]>([]);
 
-  const [newCustomer, setNewCustomer] = useState({
+  const [newCustomer, setNewCustomer] = useState<CreateCustomerPayload>({
     // ส่วนที่ 1: ข้อมูลบริษัท/องค์กร
     companyName: "",
     customerType: "เจ้าของงาน",
@@ -173,13 +153,13 @@ export default function CustomerManagement() {
     lineId: "",
 
     // ข้อมูลผู้ติดต่อเพิ่มเติม
-    additionalContacts: [] as Array<{ contactName: string; lineId: string; phoneNumber: string; email: string }>,
+    additionalContacts: [],
 
     // ส่วนที่ 3: การนำเสนอ
     presentationStatus: "เสนอขาย",
-    contactCount: 1,
-    lastContactDate: new Date(),
-    interestedProducts: [] as string[],
+    // contactCount: 1, // Not in payload
+    // lastContactDate: new Date(), // Not in payload
+    interestedProducts: [],
 
     // ส่วนที่ 4: ข้อมูลภายใน
     responsiblePerson: "พนักงานขายปัจจุบัน",
@@ -188,6 +168,10 @@ export default function CustomerManagement() {
     otherChannel: "",
     notes: ""
   });
+
+  // Local state for UI date picker (not part of payload directly)
+  const [lastContactDate, setLastContactDate] = useState<Date>(new Date());
+
   const { toast } = useToast();
 
   // โหลดจังหวัดทั้งหมดเมื่อ component mount
@@ -202,20 +186,15 @@ export default function CustomerManagement() {
   // โหลดอำเภอเมื่อเลือกจังหวัดสำหรับที่อยู่ออกใบกำกับภาษี
   useEffect(() => {
     const loadDistricts = async () => {
-      console.log('🔄 [Billing] useEffect triggered, province:', newCustomer.billingProvince);
-
       if (newCustomer.billingProvince) {
         try {
-          console.log('📍 [Billing] Loading districts for:', newCustomer.billingProvince);
           const districtList = await AddressService.getDistricts(newCustomer.billingProvince);
-          console.log('✅ [Billing] Districts loaded:', districtList.length, districtList);
           setBillingDistricts(districtList);
         } catch (error) {
           console.error('❌ [Billing] Error loading districts:', error);
           setBillingDistricts([]);
         }
       } else {
-        console.log('⚠️ [Billing] No province selected, clearing districts');
         setBillingDistricts([]);
         setBillingSubdistricts([]);
       }
@@ -307,69 +286,18 @@ export default function CustomerManagement() {
     }
   }, [sameAddress, newCustomer.billingProvince, newCustomer.billingDistrict, newCustomer.billingSubdistrict, newCustomer.billingPostcode, newCustomer.billingAddress]);
 
-  // Fetch customers from database
-  // const fetchCustomers = async () => {
-  //   try {
-  //     setLoading(true);
-  //     const { data, error } = await supabase
-  //       .from('customers')
-  //       .select('*')
-  //       .order('created_at', { ascending: false });
-
-  //     if (error) {
-  //       console.error('Error fetching customers:', error);
-  //       toast({
-  //         title: "เกิดข้อผิดพลาด",
-  //         description: "ไม่สามารถดึงข้อมูลลูกค้าได้",
-  //         variant: "destructive"
-  //       });
-  //       return;
-  //     }
-
-  //     // Transform data to match interface with mock CRM data
-  //     const transformedCustomers: Customer[] = data.map((customer, index) => {
-  //       const mockCRM = generateMockCRMData(index);
-  //       return {
-  //         id: customer.id,
-  //         name: customer.company_name,
-  //         contact: customer.contact_name,
-  //         phone: customer.phone_numbers?.[0] || '',
-  //         email: customer.emails?.[0] || '',
-  //         address: customer.province || '',
-  //         businessType: customer.business_type || 'ไม่ระบุ',
-  //         totalOrders: customer.total_orders,
-  //         totalValue: customer.total_value,
-  //         lastContact: customer.last_contact_date?.split('T')[0] || '',
-  //         status: customer.customer_status,
-  //         salesStatus: mockCRM.salesStatus,
-  //         nextAction: mockCRM.nextAction,
-  //         nextActionDate: mockCRM.nextActionDate,
-  //         salesOwner: mockCRM.salesOwner,
-  //         interestedProducts: mockCRM.interestedProducts
-  //       };
-  //     });
-
-  //     setCustomers(transformedCustomers);
-  //   } catch (error) {
-  //     console.error('Error:', error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://finfinphone.com/api-lucky/admin/get_customers.php');
-      const data = await response.json();
+      const data = await customerService.getCustomers();
 
       // แปลงข้อมูลจาก PHP ให้ตรงกับรูปแบบที่ UI ต้องการ (Interface Customer)
-      const transformedData = data.map(item => ({
+      const transformedData = (data as RawCustomerData[]).map((item) => ({
         id: item.id,
         name: item.company_name,
         contact: item.contact_name,
-        phone: item.phone_numbers[0] || '-', // เอาเบอร์แรกมาโชว์
-        email: item.emails[0] || '-',        // เอาอีเมลแรกมาโชว์
+        phone: item.phone_numbers?.[0] || '-',
+        email: item.emails?.[0] || '-',
         address: item.billing_province || '-',
         businessType: item.customer_type || 'ไม่ระบุ',
         totalOrders: parseInt(item.total_orders) || 0,
@@ -378,20 +306,27 @@ export default function CustomerManagement() {
         status: item.customer_status || 'ลูกค้าใหม่',
         salesStatus: item.presentation_status || 'ใหม่',
         salesOwner: item.responsible_person || 'ไม่ระบุ',
-        interestedProducts: item.interested_products || []
+        interestedProducts: item.interested_products || [],
+        nextAction: "โทรติดตาม", // Mock data or from API if available
+        nextActionDate: new Date().toISOString() // Mock
       }));
 
       setCustomers(transformedData);
     } catch (error) {
       console.error("Error fetching data:", error);
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถดึงข้อมูลลูกค้าได้",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [fetchCustomers]);
 
   const addPhoneNumber = () => {
     setNewCustomer(prev => ({
@@ -463,7 +398,7 @@ export default function CustomerManagement() {
     }));
   };
 
-  const updateAdditionalContact = (index: number, field: string, value: string) => {
+  const updateAdditionalContact = (index: number, field: keyof typeof newCustomer.additionalContacts[0], value: string) => {
     let formattedValue = value;
     if (field === 'phoneNumber') {
       formattedValue = formatPhoneNumber(value);
@@ -505,15 +440,7 @@ export default function CustomerManagement() {
     }
 
     try {
-      const response = await fetch('https://finfinphone.com/api-lucky/admin/save_customer.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newCustomer),
-      });
-
-      const result = await response.json();
+      const result = await customerService.createCustomer(newCustomer);
 
       if (result.status === 'success') {
         toast({
@@ -547,8 +474,6 @@ export default function CustomerManagement() {
           lineId: "",
           additionalContacts: [],
           presentationStatus: "เสนอขาย",
-          contactCount: 1,
-          lastContactDate: new Date(),
           interestedProducts: [],
           responsiblePerson: "พนักงานขายปัจจุบัน",
           customerStatus: "ลูกค้าใหม่",
@@ -557,6 +482,7 @@ export default function CustomerManagement() {
           notes: ""
         });
         setSameAddress(false);
+        setLastContactDate(new Date());
       } else {
         throw new Error(result.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล");
       }
@@ -1293,18 +1219,18 @@ export default function CustomerManagement() {
                             variant="outline"
                             className={cn(
                               "w-full justify-start text-left font-normal bg-background",
-                              !newCustomer.lastContactDate && "text-muted-foreground"
+                              !lastContactDate && "text-muted-foreground"
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {newCustomer.lastContactDate ? format(newCustomer.lastContactDate, "dd/MM/yyyy") : "เลือกวันที่"}
+                            {lastContactDate ? format(lastContactDate, "dd/MM/yyyy") : "เลือกวันที่"}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <CalendarComponent
                             mode="single"
-                            selected={newCustomer.lastContactDate}
-                            onSelect={(date) => date && setNewCustomer({ ...newCustomer, lastContactDate: date })}
+                            selected={lastContactDate}
+                            onSelect={(date) => date && setLastContactDate(date)}
                             initialFocus
                             className={cn("p-3 pointer-events-auto")}
                           />
