@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { NestedProductSelect } from "@/components/sales/NestedProductSelect";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { salesApi } from "@/services/salesApi";
 
 interface Customer {
   id: string;
@@ -771,33 +772,84 @@ export default function AddPriceEstimation() {
     handleConfirmSave();
   };
 
-  const handleConfirmSave = () => {
+  const handleConfirmSave = async () => {
     setShowSummaryPopup(false);
     setShowAwardSummaryPopup(false);
     setShowLanyardSummaryPopup(false);
     
-    // Simulate upsert customer + create price estimation
-    const isNewCustomer = Math.random() > 0.5; // Mock logic
-    
-    setTimeout(() => {
-      if (isNewCustomer) {
-        toast({
-          title: "สำเร็จ",
-          description: "สร้างลูกค้าใหม่ + บันทึกประเมินราคาแล้ว",
-        });
-      } else {
-        toast({
-          title: "สำเร็จ",
-          description: "อัปเดตข้อมูลลูกค้า + บันทึกประเมินราคาแล้ว",
-        });
-      }
+    try {
+      // Prepare payload for API
+      const payload = {
+        customerId: selectedCustomerId || "", // Note: If new customer, logic needs improvement to create customer first
+        salesOwnerId,
+        estimateDate,
+        jobName,
+        productCategory,
+        productType: selectedProductType,
+        quantity,
+        budget: price,
+        status,
+        estimateNote,
+        eventDate,
+        material,
+        customMaterial,
+        hasDesign,
+        designDescription,
+
+        // Medal
+        medalSize,
+        medalThickness,
+        selectedColors,
+        frontDetails,
+        backDetails,
+        lanyardSize,
+        lanyardPatterns,
+
+        // Lanyard
+        strapSize,
+        strapPatternCount,
+        sewingOption,
+
+        // Award
+        awardDesignDetails,
+        plaqueOption,
+        plaqueText,
+        inscriptionPlate,
+        inscriptionDetails,
+
+        // Generic
+        genericDesignDetails,
+
+        // Dimensions
+        width,
+        length,
+        height,
+        thickness,
+
+        // Files (names only for now as upload endpoint is pending)
+        attachedFiles: attachedFiles.map(f => f.name),
+      };
+
+      await salesApi.savePriceEstimation(payload);
+
+      toast({
+        title: "สำเร็จ",
+        description: "บันทึกประเมินราคาเรียบร้อยแล้ว",
+      });
       
       // Reset previous model tracking
       setSelectedFromPreviousModel(false);
       setOriginalOrderReference("");
       
       navigate("/sales/price-estimation");
-    }, 500);
+    } catch (error) {
+      console.error("Error saving estimation:", error);
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง",
+        variant: "destructive",
+      });
+    }
   };
 
   // Copy functions for summary popups
