@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,16 +39,46 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { salesApi } from "@/services/salesApi";
+
+interface Estimation {
+  id: string;
+  date: string;
+  lineName: string;
+  jobName: string;
+  productType: string;
+  quantity: number;
+  price: number;
+  status: string;
+}
 
 export default function PriceEstimation() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedEstimation, setSelectedEstimation] = useState<number | null>(null);
+  const [selectedEstimation, setSelectedEstimation] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [productTypeFilter, setProductTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [estimations, setEstimations] = useState<Estimation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await salesApi.getPriceEstimations();
+        setEstimations(data);
+      } catch (error) {
+        toast.error("ไม่สามารถดึงข้อมูลรายการประเมินราคาได้");
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Product types list
   const productTypesList = [
@@ -69,64 +99,6 @@ export default function PriceEstimation() {
     "ที่ทับกระดาษ"
   ];
 
-  // Mock data for price estimations
-  const estimations = [
-    {
-      id: 1,
-      date: "2024-01-15",
-      lineName: "customer_line_001",
-      productType: "เหรียญสั่งผลิต",
-      quantity: 100,
-      price: 15000,
-      status: "อยู่ระหว่างการประเมินราคา"
-    },
-    {
-      id: 2,
-      date: "2024-01-14",
-      lineName: "customer_line_002",
-      productType: "เหรียญสั่งผลิต",
-      quantity: 50,
-      price: 25000,
-      status: "อนุมัติแล้ว"
-    },
-    {
-      id: 3,
-      date: "2024-01-13",
-      lineName: "customer_line_003",
-      productType: "โล่สั่งผลิต",
-      quantity: 200,
-      price: 8000,
-      status: "ยกเลิก"
-    },
-    {
-      id: 4,
-      date: "2024-01-12",
-      lineName: "customer_line_004",
-      productType: "กระเป๋า",
-      quantity: 150,
-      price: 18000,
-      status: "รอจัดซื้อส่งประเมิน"
-    },
-    {
-      id: 5,
-      date: "2024-01-11",
-      lineName: "customer_line_005",
-      productType: "แก้ว",
-      quantity: 75,
-      price: 32000,
-      status: "รอจัดซื้อส่งประเมิน"
-    },
-    {
-      id: 6,
-      date: "2024-01-16",
-      lineName: "nun",
-      productType: "เหรียญสั่งผลิต",
-      quantity: 100,
-      price: 20000,
-      status: "อนุมัติแล้ว"
-    }
-  ];
-
   // Get product types for filter (use the predefined list)
   const productTypes = productTypesList;
 
@@ -137,7 +109,7 @@ export default function PriceEstimation() {
       inProgress: estimations.filter(e => e.status === "อยู่ระหว่างการประเมินราคา").length,
       approved: estimations.filter(e => e.status === "อนุมัติแล้ว").length,
     };
-  }, []);
+  }, [estimations]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -156,9 +128,11 @@ export default function PriceEstimation() {
 
   const filteredEstimations = useMemo(() => {
     return estimations.filter(estimation => {
+      const searchLower = searchTerm.toLowerCase();
       const matchesSearch = 
-        estimation.lineName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        estimation.productType.toLowerCase().includes(searchTerm.toLowerCase());
+        (estimation.lineName && estimation.lineName.toLowerCase().includes(searchLower)) ||
+        (estimation.jobName && estimation.jobName.toLowerCase().includes(searchLower)) ||
+        (estimation.productType && estimation.productType.toLowerCase().includes(searchLower));
       
       const estimationDate = new Date(estimation.date);
       const matchesDateRange = 
@@ -173,9 +147,9 @@ export default function PriceEstimation() {
 
       return matchesSearch && matchesDateRange && matchesProductType && matchesStatus;
     });
-  }, [searchTerm, startDate, endDate, productTypeFilter, statusFilter]);
+  }, [estimations, searchTerm, startDate, endDate, productTypeFilter, statusFilter]);
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     setSelectedEstimation(id);
     setDeleteDialogOpen(true);
   };
@@ -188,7 +162,7 @@ export default function PriceEstimation() {
     }
   };
 
-  const handleCreateOrder = (estimation: typeof estimations[0]) => {
+  const handleCreateOrder = (estimation: Estimation) => {
     navigate("/sales/create-order", { 
       state: { 
         fromEstimation: true,
@@ -207,7 +181,7 @@ export default function PriceEstimation() {
   };
 
   // Render action buttons based on status
-  const renderActionButtons = (estimation: typeof estimations[0]) => {
+  const renderActionButtons = (estimation: Estimation) => {
     const { status, id } = estimation;
 
     const ViewButton = () => (
@@ -351,7 +325,7 @@ export default function PriceEstimation() {
             <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="ค้นหาตาม LINE หรือประเภทสินค้า..."
+                placeholder="ค้นหาตาม LINE, ชื่องาน หรือสินค้า..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
@@ -453,7 +427,13 @@ export default function PriceEstimation() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredEstimations.length === 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    กำลังโหลดข้อมูล...
+                  </TableCell>
+                </TableRow>
+              ) : filteredEstimations.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     ไม่พบรายการประเมินราคา
@@ -465,7 +445,12 @@ export default function PriceEstimation() {
                     <TableCell className="font-medium">
                       {format(new Date(estimation.date), "d/M/yyyy", { locale: th })}
                     </TableCell>
-                    <TableCell>{estimation.lineName}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span>{estimation.lineName}</span>
+                        <span className="text-xs text-muted-foreground">{estimation.jobName}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{estimation.productType}</TableCell>
                     <TableCell className="text-right">{estimation.quantity.toLocaleString()}</TableCell>
                     <TableCell>
