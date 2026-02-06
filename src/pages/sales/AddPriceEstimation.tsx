@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft, Upload, User, FileText, X, Search, XCircle, History, AlertCircle, Calendar, Package, Check, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { NestedProductSelect } from "@/components/sales/NestedProductSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -190,8 +190,10 @@ const mockPreviousEstimations: PreviousEstimation[] = [
 ];
 
 export default function AddPriceEstimation() {
+  const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isEditMode = Boolean(id);
   
   // Customer search state
   const [customerSearch, setCustomerSearch] = useState("");
@@ -303,6 +305,79 @@ export default function AddPriceEstimation() {
     
     fetchCustomers();
   }, [toast]);
+
+  // Fetch estimation data for Edit Mode
+  useEffect(() => {
+    if (!isEditMode || !id || customers.length === 0) return;
+
+    const fetchEstimation = async () => {
+      try {
+        const data = await salesApi.getPriceEstimationDetail(id);
+
+        // Populate fields
+        setSelectedCustomerId(data.customerId);
+        setSalesOwnerId(data.salesOwnerId || "");
+        setEstimateDate(data.estimateDate || new Date().toISOString().split('T')[0]);
+        setJobName(data.jobName || "");
+        setProductCategory(data.productCategory || "");
+        setSelectedProductType(data.productType || "");
+        setQuantity(data.quantity?.toString() || "");
+        setPrice(data.budget?.toString() || "");
+        setEstimateNote(data.notes || "");
+        setEventDate(data.eventDate || "");
+        setMaterial(data.material || "");
+        setHasDesign(data.hasDesign || "");
+        setDesignDescription(data.genericDesignDetails || ""); // Map generic details to description if needed, or specific field
+
+        // Medal specific
+        setMedalSize(data.medalSize || "");
+        setMedalThickness(data.medalThickness || "");
+        setSelectedColors(data.selectedColors || []);
+        setFrontDetails(data.frontDetails || []);
+        setBackDetails(data.backDetails || []);
+        setLanyardSize(data.lanyardSize || "");
+        setLanyardPatterns(data.lanyardPatterns || "");
+
+        // Lanyard
+        // Note: Check backend response fields mapping for strapSize, etc. if different
+
+        // Award
+        setAwardDesignDetails(data.awardDesignDetails || "");
+        setPlaqueOption(data.plaqueOption || "no-plaque");
+        setPlaqueText(data.plaqueText || "");
+
+        // Generic
+        setGenericDesignDetails(data.genericDesignDetails || "");
+
+        // Find and set customer info based on ID
+        const customer = customers.find(c => c.id === data.customerId);
+        if (customer) {
+          setCustomerName(customer.contact_name || customer.company_name);
+          setCustomerPhone(customer.phone_numbers?.[0] || "");
+          setCustomerLineId(customer.line_id || "");
+          setCustomerEmail(customer.emails?.[0] || "");
+          setCustomerTags(customer.customer_type || "");
+          setCustomerNote(customer.notes || "");
+        } else {
+          // Fallback if customer not found in list (or legacy data)
+          setCustomerName(data.customerName || "");
+          setCustomerPhone(data.customerPhone || "");
+          setCustomerLineId(data.customerLineId || "");
+          setCustomerEmail(data.customerEmail || "");
+        }
+
+      } catch (error) {
+        console.error("Error fetching estimation:", error);
+        toast({
+          title: "เกิดข้อผิดพลาด",
+          description: "ไม่สามารถโหลดข้อมูลการประเมินราคาได้",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchEstimation();
+  }, [isEditMode, id, customers, toast]);
 
   // Filter customers based on search
   useEffect(() => {
@@ -779,6 +854,7 @@ export default function AddPriceEstimation() {
     try {
       // Prepare payload for API
       const payload = {
+        id: isEditMode ? id : undefined, // Include ID for update
         customerId: selectedCustomerId || "", // Note: If new customer, logic needs improvement to create customer first
         salesOwnerId,
         estimateDate,
@@ -900,8 +976,10 @@ export default function AddPriceEstimation() {
           ย้อนกลับ
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">เพิ่มประเมินราคา</h1>
-          <p className="text-muted-foreground">กรอกข้อมูลลูกค้าและรายละเอียดการประเมินราคา</p>
+          <h1 className="text-3xl font-bold">{isEditMode ? "แก้ไขประเมินราคา" : "เพิ่มประเมินราคา"}</h1>
+          <p className="text-muted-foreground">
+            {isEditMode ? "แก้ไขข้อมูลลูกค้าและรายละเอียดการประเมินราคา" : "กรอกข้อมูลลูกค้าและรายละเอียดการประเมินราคา"}
+          </p>
         </div>
       </div>
 
@@ -1160,8 +1238,8 @@ export default function AddPriceEstimation() {
               </div>
             )}
 
-            {/* โมเดลเดิม Checkbox - แสดงเฉพาะ เหรียญสั่งผลิต เท่านั้น */}
-            {selectedProductType === 'medal' && (
+            {/* โมเดลเดิม Checkbox - แสดงเฉพาะ เหรียญสั่งผลิต เท่านั้น และไม่ใช่โหมดแก้ไข */}
+            {selectedProductType === 'medal' && !isEditMode && (
               <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
