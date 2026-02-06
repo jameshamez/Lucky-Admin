@@ -3,18 +3,17 @@
 The following API endpoints and frontend integrations are required to complete the Sales / Price Estimation feature.
 
 ## 1. List View (`get_price_estimations.php`)
-- [ ] **Backend:** Create endpoint to fetch a paginated list of price estimations.
+- [x] **Backend:** Create endpoint to fetch a paginated list of price estimations.
     - Support filtering (e.g., by status, customer, date).
     - Support sorting.
-- [ ] **Frontend:** Update `src/pages/sales/PriceEstimation.tsx` (or equivalent list page) to fetch data from this endpoint instead of mock data.
+- [x] **Frontend:** Update `src/pages/sales/PriceEstimation.tsx` (or equivalent list page) to fetch data from this endpoint instead of mock data.
 
 ## 2. Detail View (`get_price_estimation_detail.php`)
-- [ ] **Backend:** Create endpoint to fetch a single price estimation by ID.
+- [x] **Backend:** Create endpoint to fetch a single price estimation by ID.
     - Should include all fields stored in `price_estimations`.
     - Should probably join with `customers` table to get customer details if needed.
-- [ ] **Frontend:** Update `src/pages/sales/AddPriceEstimation.tsx` to support "Edit Mode".
-    - Fetch data when an ID is provided in the URL.
-    - Populate the form fields.
+- [x] **Frontend:** Update `src/pages/sales/PriceEstimationDetail.tsx` (View Mode) to fetch data from API.
+- [ ] **Frontend:** Update `src/pages/sales/AddPriceEstimation.tsx` to support "Edit Mode" (fetch and populate).
 
 ## 3. File Upload (`upload_file.php`)
 - [ ] **Backend:** Create endpoint to handle file uploads.
