@@ -80,6 +80,7 @@ if ($result->num_rows > 0) {
     // Construct Response Object matching Frontend Interface
     $response = [
         'id' => $row['id'],
+        'customerId' => $row['customer_id'], // Needed for Edit Mode
         'status' => $row['status'],
 
         // Customer Info
