@@ -99,4 +99,14 @@ export const salesApi = {
       throw error;
     }
   },
+
+  deletePriceEstimation: async (id: string) => {
+    try {
+      const response = await axios.post(`${BASE_URL}/delete_price_estimation.php`, { id });
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting price estimation:', error);
+      throw error;
+    }
+  },
 };
