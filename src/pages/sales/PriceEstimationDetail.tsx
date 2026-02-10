@@ -64,11 +64,18 @@ export default function PriceEstimationDetail() {
     fetchDetail();
   }, [id]);
 
-  const handleDelete = () => {
-    // Perform delete action
-    toast.success("ลบรายการประเมินราคาเรียบร้อยแล้ว");
-    setIsDeleteDialogOpen(false);
-    navigate("/sales/price-estimation");
+  const handleDelete = async () => {
+    try {
+      if (id) {
+        await salesApi.deletePriceEstimation(id);
+        toast.success("ยกเลิกรายการประเมินราคาเรียบร้อยแล้ว");
+        setIsDeleteDialogOpen(false);
+        navigate("/sales/price-estimation");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("เกิดข้อผิดพลาดในการยกเลิกรายการ");
+    }
   };
   
   // Mock design files upload history - replace with actual data

@@ -13,7 +13,7 @@ The following API endpoints and frontend integrations are required to complete t
     - Should include all fields stored in `price_estimations`.
     - Should probably join with `customers` table to get customer details if needed.
 - [x] **Frontend:** Update `src/pages/sales/PriceEstimationDetail.tsx` (View Mode) to fetch data from API.
-- [ ] **Frontend:** Update `src/pages/sales/AddPriceEstimation.tsx` to support "Edit Mode" (fetch and populate).
+- [x] **Frontend:** Update `src/pages/sales/AddPriceEstimation.tsx` to support "Edit Mode" (fetch and populate).
 
 ## 3. File Upload (`upload_file.php`)
 - [ ] **Backend:** Create endpoint to handle file uploads.

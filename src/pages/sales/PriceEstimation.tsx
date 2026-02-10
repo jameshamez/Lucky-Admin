@@ -64,19 +64,20 @@ export default function PriceEstimation() {
   const [estimations, setEstimations] = useState<Estimation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch data
+  const fetchData = async () => {
+    try {
+      const data = await salesApi.getPriceEstimations();
+      setEstimations(data);
+    } catch (error) {
+      toast.error("ไม่สามารถดึงข้อมูลรายการประเมินราคาได้");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch data on mount
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await salesApi.getPriceEstimations();
-        setEstimations(data);
-      } catch (error) {
-        toast.error("ไม่สามารถดึงข้อมูลรายการประเมินราคาได้");
-        console.error(error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
@@ -154,11 +155,19 @@ export default function PriceEstimation() {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedEstimation) {
-      toast.success("ลบรายการประเมินราคาเรียบร้อยแล้ว");
-      setDeleteDialogOpen(false);
-      setSelectedEstimation(null);
+      try {
+        await salesApi.deletePriceEstimation(selectedEstimation);
+        toast.success("ยกเลิกรายการประเมินราคาเรียบร้อยแล้ว");
+        setDeleteDialogOpen(false);
+        setSelectedEstimation(null);
+        // Refresh list
+        fetchData();
+      } catch (error) {
+        console.error(error);
+        toast.error("เกิดข้อผิดพลาดในการยกเลิกรายการ");
+      }
     }
   };
 
