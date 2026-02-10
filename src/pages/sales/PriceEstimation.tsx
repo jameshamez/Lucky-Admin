@@ -106,7 +106,7 @@ export default function PriceEstimation() {
   // Status counts for summary cards
   const statusCounts = useMemo(() => {
     return {
-      waiting: estimations.filter(e => e.status === "รอจัดซื้อส่งประเมิน").length,
+      waiting: estimations.filter(e => e.status === "รอจัดซื้อส่งประเมิน" || e.status === "รอประเมินราคา").length,
       inProgress: estimations.filter(e => e.status === "อยู่ระหว่างการประเมินราคา").length,
       approved: estimations.filter(e => e.status === "อนุมัติแล้ว").length,
     };
@@ -119,6 +119,7 @@ export default function PriceEstimation() {
       case "อยู่ระหว่างการประเมินราคา":
         return "bg-blue-100 text-blue-700 border-blue-200";
       case "รอจัดซื้อส่งประเมิน":
+      case "รอประเมินราคา":
         return "bg-orange-100 text-orange-700 border-orange-200";
       case "ยกเลิก":
         return "bg-red-100 text-red-700 border-red-200";
@@ -205,11 +206,24 @@ export default function PriceEstimation() {
       </Button>
     );
 
+    const DeleteButton = () => (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => handleDelete(id)}
+        className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    );
+
     switch (status) {
       case "รอจัดซื้อส่งประเมิน":
+      case "รอประเมินราคา": // Added to handle the status seen in screenshot
         return (
           <div className="flex items-center justify-start gap-3">
             <ViewButton />
+            <DeleteButton />
           </div>
         );
 
@@ -217,6 +231,7 @@ export default function PriceEstimation() {
         return (
           <div className="flex items-center justify-start gap-3">
             <ViewButton />
+            <DeleteButton />
           </div>
         );
 
@@ -232,13 +247,15 @@ export default function PriceEstimation() {
               <ShoppingCart className="h-4 w-4" />
               จัดการคำสั่งซื้อ
             </Button>
+            {/* Optionally allow delete for approved items if needed, or keep it safe */}
           </div>
         );
 
       default:
         return (
-          <div className="flex items-center justify-start">
+          <div className="flex items-center justify-start gap-3">
             <ViewButton />
+            <DeleteButton />
           </div>
         );
     }
