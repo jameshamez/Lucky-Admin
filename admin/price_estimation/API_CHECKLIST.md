@@ -16,16 +16,16 @@ The following API endpoints and frontend integrations are required to complete t
 - [x] **Frontend:** Update `src/pages/sales/AddPriceEstimation.tsx` to support "Edit Mode" (fetch and populate).
 
 ## 3. File Upload (`upload_file.php`)
-- [ ] **Backend:** Create endpoint to handle file uploads.
+- [x] **Backend:** Create endpoint to handle file uploads.
     - Validate file types and sizes.
     - Store files in a secure directory.
     - Return the file path/URL.
-- [ ] **Frontend:** Update the file upload component in `src/pages/sales/AddPriceEstimation.tsx` to use this endpoint.
+- [x] **Frontend:** Update the file upload component in `src/pages/sales/AddPriceEstimation.tsx` to use this endpoint.
     - Currently, it might be mocking the upload or not persisting it.
 
 ## 4. Delete (`delete_price_estimation.php`)
-- [ ] **Backend:** Create endpoint to soft-delete (update status to 'deleted') or hard-delete a price estimation.
-- [ ] **Frontend:** Add delete functionality to the List View and potentially the Detail View.
+- [x] **Backend:** Create endpoint to soft-delete (update status to 'deleted') or hard-delete a price estimation.
+- [x] **Frontend:** Add delete functionality to the List View and potentially the Detail View.
 
 ## 5. Deployment
 - [ ] Run `db_schema.sql` (Already done for the main table, check if updates are needed).
