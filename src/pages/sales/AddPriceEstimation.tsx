@@ -2304,7 +2304,7 @@ export default function AddPriceEstimation() {
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-muted-foreground" />
                         <a
-                          href={`/api-lucky/admin/${file.path}`}
+                          href={`https://finfinphone.com/api-lucky/admin/${file.path}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm truncate max-w-xs hover:underline text-primary"

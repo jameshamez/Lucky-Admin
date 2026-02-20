@@ -400,8 +400,8 @@ export default function PriceEstimationDetail() {
                 {estimation.attachedFiles.map((file: any, index: number) => {
                   const fileName = typeof file === 'string' ? file : file.name;
                   const filePath = typeof file === 'string' ? file : file.path;
-                  // Use relative path for local/production compatibility
-                  const fileUrl = filePath ? `/api-lucky/admin/${filePath}` : '#';
+                  // Use absolute path to point to the remote server
+                  const fileUrl = filePath ? `https://finfinphone.com/api-lucky/admin/${filePath}` : '#';
 
                   return (
                     <a
