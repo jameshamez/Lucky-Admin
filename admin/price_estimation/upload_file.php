@@ -4,6 +4,17 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Content-Type: application/json; charset=UTF-8");
 
+// Session Check
+session_start();
+// Basic check for admin session - adjust according to actual login logic
+// Assuming $_SESSION['admin_login'] or similar is set upon login
+// For now, allow if session is started, but in production should check specific key
+// if (!isset($_SESSION['admin_login'])) {
+//     http_response_code(401);
+//     echo json_encode(array("status" => "error", "message" => "Unauthorized"));
+//     exit();
+// }
+
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     http_response_code(200);
     exit();

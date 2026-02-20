@@ -397,15 +397,25 @@ export default function PriceEstimationDetail() {
             <div className="pt-4 border-t">
               <p className="text-sm font-medium text-muted-foreground mb-3">ไฟล์แนบจากลูกค้า</p>
               <div className="flex flex-wrap gap-3">
-                {estimation.attachedFiles.map((file: string, index: number) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center gap-2 bg-muted/50 hover:bg-muted rounded-lg px-4 py-2.5 border cursor-pointer transition-colors group"
-                  >
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium group-hover:text-primary transition-colors">{file}</span>
-                  </div>
-                ))}
+                {estimation.attachedFiles.map((file: any, index: number) => {
+                  const fileName = typeof file === 'string' ? file : file.name;
+                  const filePath = typeof file === 'string' ? file : file.path;
+                  // Use relative path for local/production compatibility
+                  const fileUrl = filePath ? `/api-lucky/admin/${filePath}` : '#';
+
+                  return (
+                    <a
+                      key={index}
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 bg-muted/50 hover:bg-muted rounded-lg px-4 py-2.5 border cursor-pointer transition-colors group"
+                    >
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors">{fileName}</span>
+                    </a>
+                  );
+                })}
               </div>
             </div>
           )}
