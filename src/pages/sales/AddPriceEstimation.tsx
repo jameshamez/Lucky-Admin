@@ -282,7 +282,8 @@ export default function AddPriceEstimation() {
   const [designDescription, setDesignDescription] = useState("");
 
   // File attachments
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; path: string }[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Fetch customers from API
   useEffect(() => {
@@ -348,6 +349,21 @@ export default function AddPriceEstimation() {
 
         // Generic
         setGenericDesignDetails(data.genericDesignDetails || "");
+
+        // Handle existing attached files (ensure correct format)
+        if (data.attachedFiles) {
+          // If backend returns array of strings (legacy), map to object structure
+          // If backend returns array of objects, use as is (with validation)
+          const validFiles = Array.isArray(data.attachedFiles)
+            ? data.attachedFiles.map((f: any) => {
+                if (typeof f === 'string') {
+                  return { name: f, path: f }; // Fallback for legacy string paths
+                }
+                return { name: f.name || 'Unknown', path: f.path || '' };
+              })
+            : [];
+          setAttachedFiles(validFiles);
+        }
 
         // Find and set customer info based on ID
         const customer = customers.find(c => c.id === data.customerId);
@@ -785,9 +801,80 @@ export default function AddPriceEstimation() {
   };
 
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setAttachedFiles(prev => [...prev, ...Array.from(e.target.files || [])]);
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesToUpload = Array.from(e.target.files);
+      setIsUploading(true);
+
+      // Filter valid files first
+      const validFiles: File[] = [];
+      for (const file of filesToUpload) {
+        if (file.size > 5 * 1024 * 1024) {
+          toast({
+            title: "ไฟล์ขนาดใหญ่เกินไป",
+            description: `ไฟล์ ${file.name} มีขนาดเกิน 5MB`,
+            variant: "destructive",
+          });
+        } else {
+          validFiles.push(file);
+        }
+      }
+
+      if (validFiles.length > 0) {
+        try {
+          toast({
+            title: "กำลังอัปโหลด...",
+            description: `กำลังอัปโหลด ${validFiles.length} ไฟล์`,
+          });
+
+          // Upload all files in parallel
+          const uploadPromises = validFiles.map(file => salesApi.uploadFile(file));
+          const results = await Promise.allSettled(uploadPromises);
+
+          const newAttachedFiles: { name: string; path: string }[] = [];
+          let successCount = 0;
+          let failCount = 0;
+
+          results.forEach((result, index) => {
+            if (result.status === 'fulfilled' && (result.value as any).status === 'success') {
+              newAttachedFiles.push({
+                name: (result.value as any).data.fileName,
+                path: (result.value as any).data.filePath
+              });
+              successCount++;
+            } else {
+              console.error(`Error uploading file ${validFiles[index].name}:`, result.status === 'rejected' ? result.reason : (result as any).value);
+              failCount++;
+            }
+          });
+
+          if (successCount > 0) {
+            setAttachedFiles(prev => [...prev, ...newAttachedFiles]);
+            toast({
+              title: "อัปโหลดเสร็จสิ้น",
+              description: `สำเร็จ ${successCount} ไฟล์${failCount > 0 ? `, ล้มเหลว ${failCount} ไฟล์` : ''}`,
+            });
+          } else if (failCount > 0) {
+             toast({
+              title: "อัปโหลดล้มเหลว",
+              description: "ไม่สามารถอัปโหลดไฟล์ได้",
+              variant: "destructive",
+            });
+          }
+
+        } catch (error) {
+          console.error("Error in upload process:", error);
+           toast({
+            title: "เกิดข้อผิดพลาด",
+            description: "ระบบขัดข้องขณะอัปโหลดไฟล์",
+            variant: "destructive",
+          });
+        }
+      }
+
+      setIsUploading(false);
+      // Reset input
+      e.target.value = '';
     }
   };
 
@@ -901,8 +988,8 @@ export default function AddPriceEstimation() {
         height,
         thickness,
 
-        // Files (names only for now as upload endpoint is pending)
-        attachedFiles: attachedFiles.map(f => f.name),
+        // Files (send array of objects { name, path })
+        attachedFiles,
       };
 
       await salesApi.savePriceEstimation(payload);
@@ -2195,9 +2282,15 @@ export default function AddPriceEstimation() {
                 accept="image/*,.pdf,.ai,.psd,.eps" 
                 multiple 
                 onChange={handleFileChange}
+                disabled={isUploading}
               />
-              <Button variant="outline" className="mt-3" onClick={() => document.getElementById('file-attachment')?.click()}>
-                เลือกไฟล์
+              <Button
+                variant="outline"
+                className="mt-3"
+                onClick={() => document.getElementById('file-attachment')?.click()}
+                disabled={isUploading}
+              >
+                {isUploading ? "กำลังอัปโหลด..." : "เลือกไฟล์"}
               </Button>
             </div>
 
@@ -2210,10 +2303,14 @@ export default function AddPriceEstimation() {
                     <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm truncate max-w-xs">{file.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ({(file.size / 1024).toFixed(1)} KB)
-                        </span>
+                        <a
+                          href={`/api-lucky/admin/${file.path}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm truncate max-w-xs hover:underline text-primary"
+                        >
+                          {file.name}
+                        </a>
                       </div>
                       <Button 
                         variant="ghost" 
