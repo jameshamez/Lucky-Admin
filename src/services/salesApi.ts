@@ -52,10 +52,27 @@ export interface PriceEstimationData {
   thickness: string;
 
   // Files
-  attachedFiles: string[]; // URLs or paths
+  attachedFiles: { name: string; path: string }[]; // URLs or paths
 }
 
 export const salesApi = {
+  uploadFile: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await axios.post(`${BASE_URL}/upload_file.php`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  },
+
   savePriceEstimation: async (data: PriceEstimationData) => {
     try {
       const response = await axios.post(`${BASE_URL}/save_price_estimation.php`, data, {
